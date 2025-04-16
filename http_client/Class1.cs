@@ -1,28 +1,36 @@
-﻿using System;
-using System.Net.Http;
+﻿
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace CSharpInterop
 {
     public static class HttpService
     {
-        private static readonly HttpClient client = new HttpClient();
+        private static readonly HttpClient client = new();
 
-        [UnmanagedCallersOnly(EntryPoint = "make_post_request")]
+        [UnmanagedCallersOnly(EntryPoint = "send_message")]
         public static IntPtr MakePostRequest(
-            IntPtr urlPtr, 
-            IntPtr usernamePtr, 
-            IntPtr messagePtr, 
-            IntPtr apiKeyPtr)
+            IntPtr urlPtr,
+            IntPtr usernamePtr,
+            IntPtr messagePtr)
         {
-            string url = Marshal.PtrToStringUTF8(urlPtr);
-            string username = Marshal.PtrToStringUTF8(usernamePtr);
-            string message = Marshal.PtrToStringUTF8(messagePtr);
-            string apiKey = Marshal.PtrToStringUTF8(apiKeyPtr);
+            string? url = Marshal.PtrToStringUTF8(urlPtr);
+            string? username = Marshal.PtrToStringUTF8(usernamePtr);
+            string? message = Marshal.PtrToStringUTF8(messagePtr);
 
-            string result = MakePostRequestInternal(url, username, message, apiKey);
+            if (url == null || username == null || message == null)
+            {
+                return IntPtr.Zero;
+            }
+
+            string result = MakePostRequestInternal(url, username, message);
+            return Marshal.StringToHGlobalAnsi(result);
+        }
+
+        [UnmanagedCallersOnly(EntryPoint = "get_messages")]
+        public static IntPtr GetMessages()
+        {
+            string result = MakeGetRequestInternal();
             return Marshal.StringToHGlobalUni(result);
         }
 
@@ -35,19 +43,35 @@ namespace CSharpInterop
             }
         }
 
-        private static string MakePostRequestInternal(string url, string username, string message, string apiKey)
+        private static string MakePostRequestInternal(string url, string username, string message)
         {
             try
             {
-                var content = new StringContent(
-                    $"{{\"username\":\"{username}\",\"message\":\"{message}\"}}",
-                    Encoding.UTF8,
-                    "application/json");
+                var requestContent = new MultipartFormDataContent();
+                requestContent.Add(new StringContent(username), "username");
+                requestContent.Add(new StringContent(message), "message");
 
                 client.DefaultRequestHeaders.Clear();
-                client.DefaultRequestHeaders.Add("key", apiKey);
+                client.DefaultRequestHeaders.Add("key", "WcRa962TFQ5MgFja3enssESn7SBMKvkaVr2JrdvwJEKEJanD5RKU36JC8ejK");
 
-                var response = client.PostAsync(url, content).GetAwaiter().GetResult();
+                var response = client.PostAsync(url, requestContent).GetAwaiter().GetResult();
+                response.EnsureSuccessStatusCode();
+
+                return response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                return $"Error: {ex.Message}";
+            }
+        }
+        private static string MakeGetRequestInternal()
+        {
+            try
+            {
+                client.DefaultRequestHeaders.Clear();
+                client.DefaultRequestHeaders.Add("key", "WcRa962TFQ5MgFja3enssESn7SBMKvkaVr2JrdvwJEKEJanD5RKU36JC8ejK");
+
+                var response = client.GetAsync("https://chat.tissink.me").GetAwaiter().GetResult();
                 response.EnsureSuccessStatusCode();
 
                 return response.Content.ReadAsStringAsync().GetAwaiter().GetResult();

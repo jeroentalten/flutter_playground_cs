@@ -10,20 +10,18 @@ namespace CSharpInterop
 
         [UnmanagedCallersOnly(EntryPoint = "send_message")]
         public static IntPtr MakePostRequest(
-            IntPtr urlPtr,
             IntPtr usernamePtr,
             IntPtr messagePtr)
         {
-            string? url = Marshal.PtrToStringUTF8(urlPtr);
             string? username = Marshal.PtrToStringUTF8(usernamePtr);
             string? message = Marshal.PtrToStringUTF8(messagePtr);
 
-            if (url == null || username == null || message == null)
+            if ( username == null || message == null)
             {
                 return IntPtr.Zero;
             }
 
-            string result = MakePostRequestInternal(url, username, message);
+            string result = MakePostRequestInternal( username, message);
             return Marshal.StringToHGlobalAnsi(result);
         }
 
@@ -31,7 +29,7 @@ namespace CSharpInterop
         public static IntPtr GetMessages()
         {
             string result = MakeGetRequestInternal();
-            return Marshal.StringToHGlobalUni(result);
+            return Marshal.StringToHGlobalAnsi(result);
         }
 
         [UnmanagedCallersOnly(EntryPoint = "free_string")]
@@ -43,8 +41,10 @@ namespace CSharpInterop
             }
         }
 
-        private static string MakePostRequestInternal(string url, string username, string message)
+        private static string MakePostRequestInternal(string username, string message)
         {
+            String url = "https://chat.tissink.me/message";
+            // add header "key": "WcRa962TFQ5MgFja3enssESn7SBMKvkaVr2JrdvwJEKEJanD5RKU36JC8ejK"
             try
             {
                 var requestContent = new MultipartFormDataContent();
@@ -71,7 +71,7 @@ namespace CSharpInterop
                 client.DefaultRequestHeaders.Clear();
                 client.DefaultRequestHeaders.Add("key", "WcRa962TFQ5MgFja3enssESn7SBMKvkaVr2JrdvwJEKEJanD5RKU36JC8ejK");
 
-                var response = client.GetAsync("https://chat.tissink.me").GetAwaiter().GetResult();
+                var response = client.GetAsync("https://chat.tissink.me/messages").GetAwaiter().GetResult();
                 response.EnsureSuccessStatusCode();
 
                 return response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
